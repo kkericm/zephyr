@@ -15,9 +15,6 @@ var config = {
 }
 
 bot.setMyCommands([
-    // {command: "what", description: "Analisa seu nome."},
-    // {command: "hell", description: "Escolhe entre sim ou não."},
-    // {command: "dog", description: "Mostra uma imagem."},
     {command: "qrcode", description: "Gera um QrCode."},
     {command: "yt", description: "Baixa audios de videos."},
 ])
@@ -27,28 +24,6 @@ function commands(event: TelegramBot.Message, param: string[]): { [key: string]:
         start() {
             bot.sendMessage(event.chat.id, `Olá`)
         },
-        // what() {
-        //     bot.sendMessage(event.chat.id, "Qual seu nome?")
-        //     config.waitParam = true
-        //     config.commandRes = "what"
-        // },
-        // hell() {
-        //     bot.sendMessage(event.chat.id, "Escolha 1", {
-        //         reply_markup: {
-        //             inline_keyboard: [
-        //                 [{text: "Sim", callback_data: "hell:yes"}],
-        //                 [{text: "Não", callback_data: "hell:no"}]
-        //             ]
-        //         }
-        //     })
-        // },
-        // dog() {
-        //     // const image = path.resolve(__dirname, '../assets/images/dog-puppy.png')
-        //     const image = `https://images.pexels.com/photos/1108099/pexels-photo-1108099.jpeg`
-        //     bot.sendPhoto(event.chat.id, image)
-        //     // bot.sendPhoto(event.chat.id, "C:/Users/Eric Melo/Desktop/Zephyr 2/zephyr/assets/images/dog-puppy.png")
-        //     // bot.sendDocument()
-        // },
         qrcode() {
             if (param.length === 0) {
                 bot.sendMessage(event.chat.id, "Foneça o link...")
@@ -144,10 +119,10 @@ bot.on("message", event => {
     if (msg.startsWith("/")) {
         config.waitParam = false;
         config.commandRes = '';
-        let command = msg.slice(1).split(" ")
-        let _commands = commands(event, command.slice(1))
-        if (Object.keys(_commands).includes(command[0])) _commands[command[0]]()
-        else bot.sendMessage(event.chat.id, "Comando desconhecido.")
+        let command = msg.slice(1).split(" ");
+        let _commands = commands(event, command.slice(1));
+        if (Object.keys(_commands).includes(command[0])) _commands[command[0]]();
+        else bot.sendMessage(event.chat.id, "Comando desconhecido.");
 
     } else if (config.waitParam) {
         waits(event)[config.commandRes](msg);
@@ -155,17 +130,15 @@ bot.on("message", event => {
 })
 
 bot.on("callback_query", event => {
-    let dal = event.data?.split(":") as string[]
-    // log(dal)
+    let dal = event.data?.split(":") as string[];
     if (!config.callOn) {
-        config.callOn = true
-        calls(event, dal.slice(1))[dal[0]]()
+        config.callOn = true;
+        calls(event, dal.slice(1))[dal[0]]();
     }
 })
 
 bot.on('polling_error', event => {
-    console.log(event.message)
+    console.log(event.message);
 })
 
-console.log("On-line")
-// console.log(__dirname)
+console.log("Zephyr está on-line");
