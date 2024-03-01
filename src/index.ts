@@ -4,7 +4,6 @@ import fs from "fs"
 import qr from "qrcode"
 import ytdl from "ytdl-core"
 import ytSeach from "yt-search"
-import { log } from 'console';
 
 const bot = new TelegramBot("6157411466:AAGUFR2hh1aknQinOZO21i3S1WF3eqTUafM", { polling: true });
 
@@ -16,8 +15,9 @@ var config = {
 
 bot.setMyCommands([
     {command: "qrcode", description: "Gera um QrCode."},
-    {command: "yt", description: "Baixa audios de videos."},
+    {command: "yt", description: "Baixa musicas do YouTube."},
 ])
+
 
 function commands(event: TelegramBot.Message, param: string[]): { [key: string]: any } {
     return {
@@ -36,24 +36,32 @@ function commands(event: TelegramBot.Message, param: string[]): { [key: string]:
             }
         },
         async yt() {
-            const vid = (await ytSeach({query: param[0], category: "music"})).videos.slice(0, 11)
-            let x = ''
-            let y: any[] = []
-            for (let i = 1; i <= 10; i++) {
-                x += `${i}. ${vid[i].title}. [${vid[i].duration.timestamp}]\n`
-                if (i == 6 || i == 1) y.push([
-                    {text: i, callback_data: `yt:${vid[i].url}`}, 
-                    {text: i + 1, callback_data: `yt:${vid[i + 1].url}`},
-                    {text: i + 2, callback_data: `yt:${vid[i + 2].url}`},
-                    {text: i + 3, callback_data: `yt:${vid[i + 3].url}`},
-                    {text: i + 4, callback_data: `yt:${vid[i + 4].url}`}
-                ])
+            const vid = (await ytSeach({query: param[0], category: "music"})).videos[0]
+            let th = await bot.sendMessage(event.chat.id as number, "Enviando, aguarde...")
+            try {
+                let videoInfo = await ytdl.getInfo(vid.url);
+                let audioFormat = ytdl.chooseFormat(videoInfo.formats, { filter: 'audioonly' });
+                const audioStream = ytdl.downloadFromInfo(videoInfo, {
+                    format: audioFormat,
+                    quality: 'highestaudio',
+                });
+                let audioBuffer = Buffer.from('');
+                audioStream.on('data', (chunk) => {
+                    audioBuffer = Buffer.concat([audioBuffer, chunk]);
+                });
+                audioStream.on('end', () => {
+                    bot.sendAudio(event.chat.id as number, audioBuffer, {
+                        title: videoInfo.videoDetails.title + '.mp3', 
+                        performer: videoInfo.videoDetails.author.name
+                    }).then(r => {
+                        bot.deleteMessage(th.chat.id, th.message_id)
+                    });
+                });
+            } catch (error) {
+                bot.sendMessage(event.chat.id, "Houve um erro.")
+                console.error(error);
+                throw error;
             }
-            bot.sendMessage(event.chat.id, x, {
-                reply_markup: {
-                    inline_keyboard: y
-                }
-            })
         }
     }
 }
@@ -82,34 +90,6 @@ function calls(event: TelegramBot.CallbackQuery, data: string[]): { [key: string
                 chat_id: event.message?.chat.id,
                 message_id: event.message?.message_id
             })
-        },
-        async yt() {
-            let th = await bot.sendMessage(event.message?.chat.id as number, "Enviando, aguarde...")
-            try {
-                let videoInfo = await ytdl.getInfo(data.join(':'));
-                let audioFormat = ytdl.chooseFormat(videoInfo.formats, { filter: 'audioonly' });
-                const audioStream = ytdl.downloadFromInfo(videoInfo, {
-                    format: audioFormat,
-                    quality: 'highestaudio',
-                });
-
-                let audioBuffer = Buffer.from('');
-                audioStream.on('data', (chunk) => {
-                    audioBuffer = Buffer.concat([audioBuffer, chunk]);
-                });
-                audioStream.on('end', () => {
-                    bot.sendAudio(event.message?.chat.id as number, audioBuffer, {
-                        title: videoInfo.videoDetails.title + '.mp3', 
-                        performer: videoInfo.videoDetails.ownerChannelName
-                    }).then(r => {
-                        bot.deleteMessage(th.chat.id, th.message_id)
-                    });
-                });
-            } catch (error) {
-                console.error(error);
-                throw error;
-            }
-            config.callOn = false
         }
     }
 }
