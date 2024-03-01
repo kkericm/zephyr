@@ -1,0 +1,26 @@
+{
+    "name": "zephyr",
+    "version": "1.0.0",
+    "description": "Zephyr Telegram Bot",
+    "main": "index.ts",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kkericm/zephyr.git"
+    },
+    "author": "Ericn't",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/kkericm/zephyr/issues"
+    },
+    "homepage": "https://github.com/kkericm/zephyr#readme",
+    "dependencies": {
+        "yt-search": "^2.10.4",
+        "ytdl-core": "^4.11.5"
+    },
+    "devDependencies": {
+        "@types/yt-search": "^2.10.3"
+    }
+}
