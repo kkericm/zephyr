@@ -18,6 +18,8 @@
     "homepage": "https://github.com/kkericm/zephyr#readme",
     "dependencies": {
         "@google-cloud/translate": "^8.1.0",
+        "axios": "^1.6.7",
+        "date-fns": "^3.3.1",
         "dotenv": "^16.4.5",
         "jimp": "^0.22.12",
         "yt-search": "^2.10.4",
