@@ -27,6 +27,31 @@ var settings = {
     callData: <{ [key: string]: { [key: string]: (string | number)[] } }> {}
 };
 
+interface PublicRunTimeParams {
+    [key: number]: { // <- Chat ID
+        [key: string]: /* <- User Name*/ UserRunTimeParams
+    }
+}
+interface UserRunTimeParams {
+    waitPrm?: boolean;
+    waitCmd?: string;
+    callOn?: boolean;
+}
+
+var RunTimeParams = {
+    private: <UserRunTimeParams> {
+        waitPrm: false,
+        waitCmd: '',
+        callOn: false,
+        callData: <{ [key: string]: { [key: string]: (string | number)[] } }> {}
+    },
+    public: <PublicRunTimeParams> {}
+}
+
+// primaryConfig.chats_allowed.forEach(r => {
+//     RunTimeParams.public[r] = {}
+// })
+
 bot.setMyCommands([
     {command: "qrcode", description: "Gera um QrCode."},
     {command: "yt", description: "Baixa musicas do YouTube."},
@@ -48,82 +73,32 @@ function fuckBody(content: string[], title?: string, width: number = 1) {
     ].join("\n")
 }
 
-function privateCommands(event: TelegramBot.Message, param: string[]): { [key: string]: any } {
-    return {
-        start() {
-            bot.sendMessage(event.chat.id, `Olá`)
-        },
-        async qrcode() {
-            if (param.length === 0) {
-                bot.sendChatAction(event.chat.id, "typing");
-                bot.sendMessage(event.chat.id, "Foneça o conteudo do código QR.");
-                settings.waitParam = true;
-                settings.commandRes = "qrcode";
-            } else {
-                bot.sendChatAction(event.chat.id, "upload_photo");
-                qr.toBuffer(param[0], (err, buff) => {
-                    bot.sendPhoto(event.chat.id, buff);
-                });
+const applyPrivate: Apply = (command, chatId?, userName?, add = true) => {
+    RunTimeParams.private.waitPrm = add;
+    RunTimeParams.private.waitCmd = add ? command : "";
+}
+const applyPublic: Apply = (command, chatId?, userName?, add = true) => {
+    try {
+        delete RunTimeParams.public[String(chatId)][userName];
+    } catch {}
+    if (add) {     
+        RunTimeParams.public[chatId] = {
+            ...(RunTimeParams.public[chatId] || {}),
+            [userName]: {
+                waitPrm: add,
+                waitCmd: command,
             }
-        },
-        async yt() {
-            if (param[0] !== undefined) {
-                var vid = (await ytSeach({query: param[0], category: "music"})).videos[0];
-                bot.sendChatAction(event.chat.id, "upload_voice");
-                var to_yt = setTimeout(() => {
-                    bot.sendMessage(event.chat.id as number, "Enviando, aguarde...");
-                    bot.sendChatAction(event.chat.id, "upload_voice");
-                }, 10000);
-                try {
-                    if (vid === undefined) {
-                        bot.sendMessage(event.chat.id, "Houve um erro.");
-                    } else {
-                        let videoInfo: ytdl.videoInfo = await ytdl.getInfo(vid.url);
-                        let audioFormat = ytdl.chooseFormat(videoInfo.formats, { filter: 'audioonly' });
-                        const audioStream = ytdl.downloadFromInfo(videoInfo, {
-                        format: audioFormat,
-                        quality: 'highestaudio',
-                    });
-                    let audioBuffer = Buffer.from('');
-                    audioStream.on('data', (chunk) => {
-                        audioBuffer = Buffer.concat([audioBuffer, chunk]);
-                    });
-                    audioStream.on('end', () => {
-                        bot.sendAudio(event.chat.id as number, audioBuffer, {
-                            title: videoInfo.videoDetails.title, 
-                            performer: videoInfo.videoDetails.author.name,
-                            reply_to_message_id: event.message_id
-                        }).then(r => clearTimeout(to_yt));
-                    });
-                }
-            } catch (error) {
-                bot.sendMessage(event.chat.id, "Houve um erro.");
-                throw error;
-            }
-            } else {
-                bot.sendMessage(event.chat.id, "Qual o nome da música?");
-                settings.waitParam = true;
-                settings.commandRes = "yt";
-            }
-        },
+        };
     }
 }
 
-function privateWaits(event: TelegramBot.Message): { [key: string]: any } {
-    return {
-        qrcode(...params: any[]) {
-            bot.sendMessage(event.chat.id, "Enviando, aguarde...");
-            qr.toBuffer(params[0], (err, buff) => {
-                bot.sendPhoto(event.chat.id, buff);
-            });
-            settings.commandRes = '';
-            settings.waitParam = false;
-        },
-        yt() {
-            privateCommands(event, [event.text as string]).yt();
-            settings.commandRes = '';
-            settings.waitParam = false;
-        }
+type Apply = (command: string, chatId?: number, userName?: string, add?: boolean) => void
+
+function geturtp(chatID: number, userID: number): UserRunTimeParams | undefined {
+    try {
+        return RunTimeParams.public[String(chatID)][String(userID)]
+    } catch {
+        return undefined
     }
 }
 
@@ -137,29 +112,58 @@ function privateCalls(event: TelegramBot.CallbackQuery, data: string): { [key: s
         }
     }
 }
+function groupCalls(event: TelegramBot.CallbackQuery, data: string): { [key: string]: any } {
+    return {
+        hell() {
+            bot.editMessageText(`Você escolheu ${data[0] === "yes" ? "sim": "não"}.`, {
+                chat_id: event.message?.chat.id,
+                message_id: event.message?.message_id
+            })
+        },
+        async shorturl() {
+            var dat = settings.callData[`shorturl-${data.slice(9).split('-')[1]}`]
+            try {
+                const apiUrl = `https:${dat[data.slice(9).split('-')[0]][0]}${encodeURIComponent(dat[data.slice(9).split('-')[0]][1])}`;
+                const response = await axios.get(apiUrl);
+                bot.editMessageText(`Seu link: ${response.data}`, {
+                    chat_id: event.message.chat.id,
+                    message_id: event.message.message_id,
+                    reply_markup: { inline_keyboard: [] }
+                });
+            } catch (error) {
+                console.error('Erro ao encurtar a URL:', error);
+            }
+            delete settings.callData[`shorturl-${data.slice(9).split('-')[1]}`];
+        }
+    }
+}
 
 
-function groupCommands(event: TelegramBot.Message, param: string[]): { [key: string]: any } {
+function commands(event: TelegramBot.Message, param: string[], funcApply: Apply, reply?: number): { [key: string]: any } {
     return {
         start() {
             bot.sendMessage(event.chat.id, `Olá, veja os comandos no Menu.`)
         },
-        async qrcode() {
-            if (param.length === 0) {
+        qrcode() {
+            if (event.reply_to_message !== undefined) {    
+                bot.sendChatAction(event.chat.id, "upload_photo");
+                qr.toBuffer(event.reply_to_message.text, (err, buff) => {
+                    bot.sendPhoto(event.chat.id, buff, {
+                        reply_to_message_id: reply
+                    });
+                });
+            } else if (param.length === 0) {
                 bot.sendChatAction(event.chat.id, "typing");
                 bot.sendMessage(event.chat.id, "Foneça o conteudo do código QR.", {
-                    reply_to_message_id: event.message_id
+                    reply_to_message_id: reply
                 });
-                settings.commandResAny[event.from.id] = {
-                    commandRes: "qrcode",
-                    waitParam: true
-                };
+                funcApply("qrcode", event.chat.id, event.from.username);
             } else {
                 bot.sendChatAction(event.chat.id, "upload_photo");
                 qr.toBuffer(param[0], (err, buff) => {
                     bot.sendPhoto(event.chat.id, buff, {
-                        reply_to_message_id: event.message_id
-                    }, {});
+                        reply_to_message_id: reply
+                    });
                 });
             }
         },
@@ -169,14 +173,14 @@ function groupCommands(event: TelegramBot.Message, param: string[]): { [key: str
                 bot.sendChatAction(event.chat.id, "upload_voice");
                 var to_yt = setTimeout(() => {
                     bot.sendMessage(event.chat.id as number, "Enviando, aguarde...", {
-                        reply_to_message_id: event.message_id
+                        reply_to_message_id: reply
                     })
                     bot.sendChatAction(event.chat.id, "upload_voice");
                 }, 10000);
                 try {
                     if (vid === undefined) {
                         bot.sendMessage(event.chat.id, "Houve um erro.", {
-                            reply_to_message_id: event.message_id
+                            reply_to_message_id: reply
                         })
                     } else {
                         let videoInfo: ytdl.videoInfo = await ytdl.getInfo(vid.url);
@@ -193,23 +197,22 @@ function groupCommands(event: TelegramBot.Message, param: string[]): { [key: str
                             bot.sendAudio(event.chat.id as number, audioBuffer, {
                                 title: videoInfo.videoDetails.title, 
                                 performer: videoInfo.videoDetails.author.name,
-                                reply_to_message_id: event.message_id
+                                reply_to_message_id: reply
                             }).then(r => clearTimeout(to_yt))
                         });
                     }
             } catch (error) {
                 bot.sendMessage(event.chat.id, "Houve um erro.", {
-                    reply_to_message_id: event.message_id
+                    reply_to_message_id: reply
                 })
                 // console.error(error);
                 throw error;
             }
             } else {
                 bot.sendMessage(event.chat.id, "Qual o nome da música?", {
-                    reply_to_message_id: event.message_id
+                    reply_to_message_id: reply
                 })
-                settings.waitParam = true
-                settings.commandRes = "yt"
+                funcApply("yt", event.chat.id, event.from.username)
             }
         },
         allow() {
@@ -234,7 +237,7 @@ function groupCommands(event: TelegramBot.Message, param: string[]): { [key: str
                         {text: "is.gd", callback_data: `shorturl:isgd-${event.message_id}`}
                     ]]
                 },
-                reply_to_message_id: event.message_id
+                reply_to_message_id: reply
             }).then(r => {
                 settings.callData[`shorturl-${event.message_id}`] = {
                     tinyurl: ["tinyurl.com/api-create.php?url=", param[0]],
@@ -245,20 +248,25 @@ function groupCommands(event: TelegramBot.Message, param: string[]): { [key: str
     }
 }
 
-function groupWaits(event: TelegramBot.Message): { [key: string]: any } {
+function waits(event: TelegramBot.Message, funcApply: Apply, reply?: number): { [key: string]: any } {
     return {
-        qrcode(...params: any[]) {
-            groupCommands(event, [event.text as string]).qrcode();
-            delete settings.commandResAny[event.from.id]
+        qrcode() {
+            bot.sendChatAction(event.chat.id, "upload_photo");
+            qr.toBuffer(event.text, (err, buff) => {
+                bot.sendPhoto(event.chat.id, buff, {
+                    reply_to_message_id: reply
+                });
+            });
+            funcApply("qrcode", event.chat.id, event.from.username, false);
         },
         yt() {
-            groupCommands(event, [event.text as string]).yt();
-            delete settings.commandResAny[event.from.id]
+            commands(event, [event.text as string], () => {}, reply).yt();
+            funcApply("yt", event.chat.id, event.from.username, false)
         }
     }
 }
 
-function groupCalls(event: TelegramBot.CallbackQuery, data: string): { [key: string]: any } {
+function calls(event: TelegramBot.CallbackQuery, data: string, reply?: number): { [key: string]: any } {
     return {
         hell() {
             bot.editMessageText(`Você escolheu ${data[0] === "yes" ? "sim": "não"}.`, {
@@ -286,44 +294,73 @@ function groupCalls(event: TelegramBot.CallbackQuery, data: string): { [key: str
 
 bot.on("message", event => {
     let msg = event.text as string;
+    // console.dir(RunTimeParams, {depth: 1000})
     // console.dir(settings, {depth: 100})
     if (msg.startsWith("/") && (event.chat.type === "group" || event.chat.type === "supergroup")) {
         if (primaryConfig.chats_allowed.includes(event.chat.id) || primaryConfig.administrators.includes(event.from.id)) {
             let command = msg.slice(1).split(" ");
-            if(command[0].includes("@")) command[0] = command[0].split("@")[0]
-            settings.waitParam = false;
-            settings.commandRes = '';
-            let _commands = groupCommands(event, command.slice(1));
+            if(command[0].includes("@")) {
+                if (command[0].endsWith("@zephyr_0bot")) {
+                    command[0] = command[0].split("@")[0]
+                } else return
+            } 
+            command[0] = command[0].split("@")[0];
+            applyPublic("", event.chat.id, event.from.username, false);
+            let _commands = commands(event, command.slice(1), applyPublic, event.message_id);
             if (Object.keys(_commands).includes(command[0])) {
                 _commands[command[0]]();
             }
             console.log(fuckBody([
                 ` > command:  ${command[0]}. `,
                 ` > message:  "${msg}". `,
-                ` > sender:   ${event.from.first_name}. `,
-                ` > user:     ${event.from.username}. `,
+                ` > user:     @${event.from.username}. `,
                 ` > used in:  ${event.chat.title}. `,
                 ` > hour:     ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}. `,
             ], "Command Used"))
         } else {
             bot.sendMessage(event.chat.id, "Esse grupo está bloqueado.")
         }
-    } else if (settings.commandResAny[event.from.id].waitParam && (event.chat.type === "group" || event.chat.type === "supergroup")) {
-        groupWaits(event)[settings.commandResAny[event.from.id].commandRes](msg);
+    
+    } else if ((RunTimeParams.public[String(event.chat.id)] !== undefined && RunTimeParams.public[String(event.chat.id)][event.from.username].waitPrm) && (event.chat.type === "group" || event.chat.type === "supergroup")) {
+        let cmd = RunTimeParams.public[String(event.chat.id)][event.from.username].waitCmd
+        waits(event, applyPublic, event.message_id)[cmd]();
+        console.log(fuckBody([
+            ` > answer to:   ${cmd}. `,
+            ` > content:     "${event.text}". `,
+            ` > user:        @${event.from.username}. `,
+            ` > answered in: ${event.chat.title}. `,
+            ` > hour:        ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}. `,
+        ], "Command Answered"))
 
     } else if (msg.startsWith("/") && event.chat.type === "private") {
-        settings.waitParam = false;
-        settings.commandRes = '';
+        RunTimeParams.private.waitPrm = false;
+        RunTimeParams.private.waitCmd = "";
         let command = msg.slice(1).split(" ");
-        let _commands = privateCommands(event, command.slice(1));
+        let _commands = commands(event, command.slice(1), applyPrivate);
         if (Object.keys(_commands).includes(command[0])) {
             _commands[command[0]]();
         }
-    } else if (settings.waitParam && event.chat.type === "private") {
-        bot.sendChatAction(event.chat.id, "typing").then(r => {
-            privateWaits(event)[settings.commandRes](msg);
-        })
+        console.log(fuckBody([
+            ` > command:  ${command[0]}. `,
+            ` > message:  "${msg}". `,
+            ` > user:     @${event.from.username}. `,
+            ` > used in:  Private. `,
+            ` > hour:     ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}. `,
+        ], "Command Used"))
+    } else if (RunTimeParams.private.waitPrm && event.chat.type === "private") {
+        bot.sendChatAction(event.chat.id, "typing")
+        let cmd = RunTimeParams.private.waitCmd
+        waits(event, applyPrivate)[cmd]();
+        console.log(fuckBody([
+            ` > answer to:   ${cmd}. `,
+            ` > content:     "${event.text}". `,
+            ` > user:        @${event.from.username}. `,
+            ` > answered in: Private. `,
+            ` > hour:        ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}. `,
+        ], "Command Answered"))
     }
+    // console.dir(RunTimeParams, {depth: 1000})
+    // console.dir(settings, {depth: 100})
 })
 
 bot.on("callback_query", event => {

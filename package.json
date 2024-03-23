@@ -22,10 +22,13 @@
         "date-fns": "^3.3.1",
         "dotenv": "^16.4.5",
         "jimp": "^0.22.12",
+        "node-telegram-bot-api": "^0.64.0",
+        "qrcode": "^1.5.3",
         "yt-search": "^2.10.4",
         "ytdl-core": "^4.11.5"
     },
     "devDependencies": {
+        "@types/qrcode": "^1.5.5",
         "@types/yt-search": "^2.10.3"
     }
 }
