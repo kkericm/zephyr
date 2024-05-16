@@ -21,7 +21,7 @@ const ytdl_core_1 = __importDefault(require("ytdl-core"));
 const yt_search_1 = __importDefault(require("yt-search"));
 const date_fns_1 = require("date-fns");
 const axios_1 = __importDefault(require("axios"));
-const bot = new node_telegram_bot_api_1.default(process.env.TOLKEN, { polling: true, filepath: false });
+const bot = new node_telegram_bot_api_1.default("6157411466:AAEuIarJoVQZhwcWm1zxBhXJ_zjkGNAAyaI", { polling: true, filepath: false });
 var primaryConfig = JSON.parse(fs_1.default.readFileSync('./db/bases.json').toString("utf-8"));
 var settings = {
     waitParam: false,

@@ -8,7 +8,8 @@ import ytSeach from "yt-search";
 import { format } from "date-fns";
 import axios from 'axios';
 
-const bot = new TelegramBot(process.env.TOLKEN as string, { polling: true, filepath: false });
+// const bot = new TelegramBot(process.env.TOLKEN as string, { polling: true, filepath: false });
+const bot = new TelegramBot("6157411466:AAEuIarJoVQZhwcWm1zxBhXJ_zjkGNAAyaI", { polling: true, filepath: false });
 
 var primaryConfig: {
     chats_allowed: number[];
