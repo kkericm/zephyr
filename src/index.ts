@@ -13,7 +13,7 @@ const bot = new TelegramBot(process.env.TOLKEN as string, { polling: true, filep
 var primaryConfig: {
     chats_allowed: number[];
     administrators: number[];
-} = JSON.parse(fs.readFileSync('./src/bases.json').toString("utf-8"))
+} = JSON.parse(fs.readFileSync('./db/bases.json').toString("utf-8"))
 var settings = {
     waitParam: false,
     commandRes: '',
@@ -79,12 +79,12 @@ const applyPrivate: Apply = (command, chatId?, userName?, add = true) => {
 }
 const applyPublic: Apply = (command, chatId?, userName?, add = true) => {
     try {
-        delete RunTimeParams.public[String(chatId)][userName];
+        delete RunTimeParams.public[chatId as number][userName as string];
     } catch {}
     if (add) {     
-        RunTimeParams.public[chatId] = {
-            ...(RunTimeParams.public[chatId] || {}),
-            [userName]: {
+        RunTimeParams.public[chatId as number] = {
+            ...(RunTimeParams.public[chatId as number] || {}),
+            [userName as string]: {
                 waitPrm: add,
                 waitCmd: command,
             }
@@ -96,7 +96,7 @@ type Apply = (command: string, chatId?: number, userName?: string, add?: boolean
 
 function geturtp(chatID: number, userID: number): UserRunTimeParams | undefined {
     try {
-        return RunTimeParams.public[String(chatID)][String(userID)]
+        return RunTimeParams.public[chatID][String(userID)]
     } catch {
         return undefined
     }
@@ -126,8 +126,8 @@ function groupCalls(event: TelegramBot.CallbackQuery, data: string): { [key: str
                 const apiUrl = `https:${dat[data.slice(9).split('-')[0]][0]}${encodeURIComponent(dat[data.slice(9).split('-')[0]][1])}`;
                 const response = await axios.get(apiUrl);
                 bot.editMessageText(`Seu link: ${response.data}`, {
-                    chat_id: event.message.chat.id,
-                    message_id: event.message.message_id,
+                    chat_id: event.message?.chat.id,
+                    message_id: event.message?.message_id,
                     reply_markup: { inline_keyboard: [] }
                 });
             } catch (error) {
@@ -147,7 +147,7 @@ function commands(event: TelegramBot.Message, param: string[], funcApply: Apply,
         qrcode() {
             if (event.reply_to_message !== undefined) {    
                 bot.sendChatAction(event.chat.id, "upload_photo");
-                qr.toBuffer(event.reply_to_message.text, (err, buff) => {
+                qr.toBuffer(event.reply_to_message?.text as string, (err, buff) => {
                     bot.sendPhoto(event.chat.id, buff, {
                         reply_to_message_id: reply
                     });
@@ -157,7 +157,7 @@ function commands(event: TelegramBot.Message, param: string[], funcApply: Apply,
                 bot.sendMessage(event.chat.id, "Foneça o conteudo do código QR.", {
                     reply_to_message_id: reply
                 });
-                funcApply("qrcode", event.chat.id, event.from.username);
+                funcApply("qrcode", event.chat.id, event.from?.username);
             } else {
                 bot.sendChatAction(event.chat.id, "upload_photo");
                 qr.toBuffer(param[0], (err, buff) => {
@@ -212,12 +212,12 @@ function commands(event: TelegramBot.Message, param: string[], funcApply: Apply,
                 bot.sendMessage(event.chat.id, "Qual o nome da música?", {
                     reply_to_message_id: reply
                 })
-                funcApply("yt", event.chat.id, event.from.username)
+                funcApply("yt", event.chat.id, event.from?.username)
             }
         },
         allow() {
             bot.sendChatAction(event.chat.id, "typing");
-            if (primaryConfig.administrators.includes(event.from.id)) {
+            if (primaryConfig.administrators.includes(event.from?.id as number)) {
                 if (!primaryConfig.chats_allowed.includes(event.chat.id)) {
                     primaryConfig.chats_allowed.push(event.chat.id);
                     fs.writeFileSync("./src/bases.json", JSON.stringify(primaryConfig, undefined, 4));
@@ -234,7 +234,7 @@ function commands(event: TelegramBot.Message, param: string[], funcApply: Apply,
                 bot.sendMessage(event.chat.id, "Qual link deseja encurtar?", {
                     reply_to_message_id: reply
                 });
-                funcApply("shorturl", event.chat.id, event.from.username);
+                funcApply("shorturl", event.chat.id, event.from?.username);
             } else {
                 bot.sendMessage(event.chat.id, "Qual encurtador deseja usar?", {
                     reply_markup: {
@@ -259,20 +259,20 @@ function waits(event: TelegramBot.Message, funcApply: Apply, reply?: number): { 
     return {
         qrcode() {
             bot.sendChatAction(event.chat.id, "upload_photo");
-            qr.toBuffer(event.text, (err, buff) => {
+            qr.toBuffer(event.text as string, (err, buff) => {
                 bot.sendPhoto(event.chat.id, buff, {
                     reply_to_message_id: reply
                 });
             });
-            funcApply("qrcode", event.chat.id, event.from.username, false);
+            funcApply("qrcode", event.chat.id, event.from?.username, false);
         },
         shorturl() {
             commands(event, [event.text as string], () => {}, reply).shorturl();
-            funcApply("shorturl", event.chat.id, event.from.username, false)
+            funcApply("shorturl", event.chat.id, event.from?.username, false)
         },
         yt() {
             commands(event, [event.text as string], () => {}, reply).yt();
-            funcApply("yt", event.chat.id, event.from.username, false)
+            funcApply("yt", event.chat.id, event.from?.username, false)
         }
     }
 }
@@ -286,17 +286,21 @@ function calls(event: TelegramBot.CallbackQuery, data: string, reply?: number): 
             })
         },
         async shorturl() {
-            var dat = settings.callData[`shorturl-${data.slice(9).split('-')[1]}`]
+            var dat = settings.callData[`shorturl-${data.slice(9).split('-')[1]}`];
             try {
                 const apiUrl = `https:${dat[data.slice(9).split('-')[0]][0]}${encodeURIComponent(dat[data.slice(9).split('-')[0]][1])}`;
                 const response = await axios.get(apiUrl);
                 bot.editMessageText(`Seu link: ${response.data}`, {
-                    chat_id: event.message.chat.id,
-                    message_id: event.message.message_id,
+                    chat_id: event.message?.chat.id,
+                    message_id: event.message?.message_id,
                     reply_markup: { inline_keyboard: [] }
                 });
             } catch (error) {
-                console.error('Erro ao encurtar a URL:', error);
+                bot.editMessageText("Ocorreu um erro ao encurtar a URL. Tente novamente.", {
+                    chat_id: event.message?.chat.id,
+                    message_id: event.message?.message_id,
+                    reply_markup: { inline_keyboard: [] }
+                });
             }
             delete settings.callData[`shorturl-${data.slice(9).split('-')[1]}`];
         }
@@ -308,7 +312,7 @@ bot.on("message", event => {
     // console.dir(RunTimeParams, {depth: 1000})
     // console.dir(settings, {depth: 100})
     if (msg.startsWith("/") && (event.chat.type === "group" || event.chat.type === "supergroup")) {
-        if (primaryConfig.chats_allowed.includes(event.chat.id) || primaryConfig.administrators.includes(event.from.id)) {
+        if (primaryConfig.chats_allowed.includes(event.chat.id) || primaryConfig.administrators.includes(event.from?.id as number)) {
             let command = msg.slice(1).split(" ");
             if(command[0].includes("@")) {
                 if (command[0].endsWith("@zephyr_0bot")) {
@@ -316,7 +320,7 @@ bot.on("message", event => {
                 } else return
             } 
             command[0] = command[0].split("@")[0];
-            applyPublic("", event.chat.id, event.from.username, false);
+            applyPublic("", event.chat.id, event.from?.username, false);
             let _commands = commands(event, command.slice(1), applyPublic, event.message_id);
             if (Object.keys(_commands).includes(command[0])) {
                 _commands[command[0]]();
@@ -324,7 +328,7 @@ bot.on("message", event => {
             console.log(fuckBody([
                 ` > command:  ${command[0]}. `,
                 ` > message:  "${msg}". `,
-                ` > user:     @${event.from.username}. `,
+                ` > user:     @${event.from?.username}. `,
                 ` > used in:  ${event.chat.title}. `,
                 ` > hour:     ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}. `,
             ], "Command Used"))
@@ -332,13 +336,13 @@ bot.on("message", event => {
             bot.sendMessage(event.chat.id, "Esse grupo está bloqueado.")
         }
     
-    } else if ((RunTimeParams.public[String(event.chat.id)] !== undefined && RunTimeParams.public[String(event.chat.id)][event.from.username].waitPrm) && (event.chat.type === "group" || event.chat.type === "supergroup")) {
-        let cmd = RunTimeParams.public[String(event.chat.id)][event.from.username].waitCmd
+    } else if ((RunTimeParams.public[event.chat.id] !== undefined && RunTimeParams.public[event.chat.id][event.from?.username as string].waitPrm) && (event.chat.type === "group" || event.chat.type === "supergroup")) {
+        let cmd = RunTimeParams.public[event.chat.id][event.from?.username as string].waitCmd as string
         waits(event, applyPublic, event.message_id)[cmd]();
         console.log(fuckBody([
             ` > answer to:   ${cmd}. `,
             ` > content:     "${event.text}". `,
-            ` > user:        @${event.from.username}. `,
+            ` > user:        @${event.from?.username}. `,
             ` > answered in: ${event.chat.title}. `,
             ` > hour:        ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}. `,
         ], "Command Answered"))
@@ -354,18 +358,18 @@ bot.on("message", event => {
         console.log(fuckBody([
             ` > command:  ${command[0]}. `,
             ` > message:  "${msg}". `,
-            ` > user:     @${event.from.username}. `,
+            ` > user:     @${event.from?.username}. `,
             ` > used in:  Private. `,
             ` > hour:     ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}. `,
         ], "Command Used"))
     } else if (RunTimeParams.private.waitPrm && event.chat.type === "private") {
         bot.sendChatAction(event.chat.id, "typing")
-        let cmd = RunTimeParams.private.waitCmd
+        let cmd = RunTimeParams.private.waitCmd as string
         waits(event, applyPrivate)[cmd]();
         console.log(fuckBody([
             ` > answer to:   ${cmd}. `,
             ` > content:     "${event.text}". `,
-            ` > user:        @${event.from.username}. `,
+            ` > user:        @${event.from?.username}. `,
             ` > answered in: Private. `,
             ` > hour:        ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}. `,
         ], "Command Answered"))
@@ -376,14 +380,14 @@ bot.on("message", event => {
 
 bot.on("callback_query", event => {
     let dal = event.data?.split(":") as string[];
-    let on = event.message.chat.type === "group" ? settings.callOnAny[event.message.message_id] : settings.callOn;
+    let on = event.message?.chat.type === "group" ? settings.callOnAny[event.message.message_id as number] : settings.callOn;
     if (!on) {
-        if (event.message.chat.type === "group") settings.callOnAny[event.message.message_id] = true
+        if (event.message?.chat.type === "group") settings.callOnAny[event.message.message_id as number] = true
         else settings.callOn = true;
-        if (event.message.chat.type === "group") {
-            groupCalls(event, event.data)[dal[0]]();
+        if (event.message?.chat.type === "group") {
+            calls(event, event.data as string, event.message.message_id as number)[dal[0]]();
         } else {
-            calls(event, event.data)[dal[0]]();
+            calls(event, event.data as string)[dal[0]]();
         }
     }
 })
