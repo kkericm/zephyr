@@ -19,7 +19,7 @@ var settings = {
     commandRes: '',
     callOn: false,
     commandResAny: <{ [key: number]: {
-        waitParam?: boolean; 
+        waitParam?: boolean;
         commandRes?: string;
         callOn?: boolean;
     }}> {},
@@ -230,20 +230,27 @@ function commands(event: TelegramBot.Message, param: string[], funcApply: Apply,
             }
         },
         shorturl() {
-            bot.sendMessage(event.chat.id, "Qual encurtador deseja usar?", {
-                reply_markup: {
-                    inline_keyboard: [[
-                        {text: "TinyUrl", callback_data: `shorturl:tinyurl-${event.message_id}`},
-                        {text: "is.gd", callback_data: `shorturl:isgd-${event.message_id}`}
-                    ]]
-                },
-                reply_to_message_id: reply
-            }).then(r => {
-                settings.callData[`shorturl-${event.message_id}`] = {
-                    tinyurl: ["tinyurl.com/api-create.php?url=", param[0]],
-                    isgd: ["is.gd/create.php?format=simple&url=", param[0]]
-                }
-            })
+            if (param.length === 0) {
+                bot.sendMessage(event.chat.id, "Qual link deseja encurtar?", {
+                    reply_to_message_id: reply
+                });
+                funcApply("shorturl", event.chat.id, event.from.username);
+            } else {
+                bot.sendMessage(event.chat.id, "Qual encurtador deseja usar?", {
+                    reply_markup: {
+                        inline_keyboard: [[
+                            {text: "TinyUrl", callback_data: `shorturl:tinyurl-${event.message_id}`},
+                            {text: "is.gd", callback_data: `shorturl:isgd-${event.message_id}`}
+                        ]]
+                    },
+                    reply_to_message_id: reply
+                }).then(r => {
+                    settings.callData[`shorturl-${event.message_id}`] = {
+                        tinyurl: ["tinyurl.com/api-create.php?url=", param[0]],
+                        isgd: ["is.gd/create.php?format=simple&url=", param[0]]
+                    }
+                });
+            }
         }
     }
 }
@@ -258,6 +265,10 @@ function waits(event: TelegramBot.Message, funcApply: Apply, reply?: number): { 
                 });
             });
             funcApply("qrcode", event.chat.id, event.from.username, false);
+        },
+        shorturl() {
+            commands(event, [event.text as string], () => {}, reply).shorturl();
+            funcApply("shorturl", event.chat.id, event.from.username, false)
         },
         yt() {
             commands(event, [event.text as string], () => {}, reply).yt();
@@ -372,7 +383,7 @@ bot.on("callback_query", event => {
         if (event.message.chat.type === "group") {
             groupCalls(event, event.data)[dal[0]]();
         } else {
-            privateCalls(event, event.data)[dal[0]]();
+            calls(event, event.data)[dal[0]]();
         }
     }
 })
