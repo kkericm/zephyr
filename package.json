@@ -4,7 +4,8 @@
     "description": "Zephyr Telegram Bot",
     "main": "build/index.js",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "start": "ts-node ./src/index.js"
     },
     "repository": {
         "type": "git",
@@ -17,15 +18,14 @@
     },
     "homepage": "https://github.com/kkericm/zephyr#readme",
     "dependencies": {
-        "@google-cloud/translate": "^8.1.0",
-        "axios": "^1.6.7",
-        "date-fns": "^3.3.1",
+        "@distube/ytdl-core": "^4.15.1",
+        "axios": "^1.7.9",
+        "date-fns": "^4.1.0",
         "dotenv": "^16.4.5",
-        "jimp": "^0.22.12",
         "node-telegram-bot-api": "^0.64.0",
         "qrcode": "^1.5.3",
         "yt-search": "^2.10.4",
-        "ytdl-core": "^4.11.5"
+        "zephyr": "file:"
     },
     "devDependencies": {
         "@types/qrcode": "^1.5.5",

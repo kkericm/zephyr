@@ -3,13 +3,12 @@ import { config } from "dotenv"; config();
 import path from "path";
 import fs, { fstatSync, readFile } from "fs";
 import qr from "qrcode";
-import ytdl from "ytdl-core";
+import ytdl from "@distube/ytdl-core";
 import ytSeach from "yt-search";
 import { format } from "date-fns";
 import axios from 'axios';
 
-// const bot = new TelegramBot(process.env.TOLKEN as string, { polling: true, filepath: false });
-const bot = new TelegramBot("6157411466:AAEuIarJoVQZhwcWm1zxBhXJ_zjkGNAAyaI", { polling: true, filepath: false });
+const bot = new TelegramBot(process.env.TOKEN as string, { polling: true, filepath: false });
 
 var primaryConfig: {
     chats_allowed: number[];
@@ -49,10 +48,6 @@ var RunTimeParams = {
     public: <PublicRunTimeParams> {}
 }
 
-// primaryConfig.chats_allowed.forEach(r => {
-//     RunTimeParams.public[r] = {}
-// })
-
 bot.setMyCommands([
     {command: "qrcode", description: "Gera um QrCode."},
     {command: "yt", description: "Baixa musicas do YouTube."},
@@ -60,7 +55,7 @@ bot.setMyCommands([
     {command: "allow", description: "Permite um grupo (ADM)."},
 ]);
 
-function fuckBody(content: string[], title?: string, width: number = 1) {
+function commandNotify(content: string[], title?: string, width: number = 1) {
     let emi: string[] = []
     let bigger = Math.max(...content.map(d => d.length))
     if (bigger > width) width = bigger
@@ -94,51 +89,6 @@ const applyPublic: Apply = (command, chatId?, userName?, add = true) => {
 }
 
 type Apply = (command: string, chatId?: number, userName?: string, add?: boolean) => void
-
-function geturtp(chatID: number, userID: number): UserRunTimeParams | undefined {
-    try {
-        return RunTimeParams.public[chatID][String(userID)]
-    } catch {
-        return undefined
-    }
-}
-
-function privateCalls(event: TelegramBot.CallbackQuery, data: string): { [key: string]: any } {
-    return {
-        hell() {
-            bot.editMessageText(`Você escolheu ${data[0] === "yes" ? "sim": "não"}.`, {
-                chat_id: event.message?.chat.id,
-                message_id: event.message?.message_id
-            })
-        }
-    }
-}
-function groupCalls(event: TelegramBot.CallbackQuery, data: string): { [key: string]: any } {
-    return {
-        hell() {
-            bot.editMessageText(`Você escolheu ${data[0] === "yes" ? "sim": "não"}.`, {
-                chat_id: event.message?.chat.id,
-                message_id: event.message?.message_id
-            })
-        },
-        async shorturl() {
-            var dat = settings.callData[`shorturl-${data.slice(9).split('-')[1]}`]
-            try {
-                const apiUrl = `https:${dat[data.slice(9).split('-')[0]][0]}${encodeURIComponent(dat[data.slice(9).split('-')[0]][1])}`;
-                const response = await axios.get(apiUrl);
-                bot.editMessageText(`Seu link: ${response.data}`, {
-                    chat_id: event.message?.chat.id,
-                    message_id: event.message?.message_id,
-                    reply_markup: { inline_keyboard: [] }
-                });
-            } catch (error) {
-                console.error('Erro ao encurtar a URL:', error);
-            }
-            delete settings.callData[`shorturl-${data.slice(9).split('-')[1]}`];
-        }
-    }
-}
-
 
 function commands(event: TelegramBot.Message, param: string[], funcApply: Apply, reply?: number): { [key: string]: any } {
     return {
@@ -252,6 +202,42 @@ function commands(event: TelegramBot.Message, param: string[], funcApply: Apply,
                     }
                 });
             }
+        },
+        async cota() {
+            async function convert(entry: string, exit: string, value: number) {
+                return axios.get(`https://economia.awesomeapi.com.br/last/${entry}-${exit}`).then((response) => {
+                    const cvt = parseFloat(response.data[entry+exit].high);
+                    const result = value * cvt;
+                    return isNaN(result) ? 'error-2' : result
+                }).catch(r => {
+                    return 'error-1'
+                }) 
+            }
+            if (param.length === 2) {
+                const params = param[0].split('-').map(d => d.toUpperCase());
+                const result = await convert(params[0], params[1], parseFloat(param[1]));
+                if (result === 'error-1') {
+                    bot.sendMessage( event.chat.id, `Não consigo converter a configuração de *${params[0]}-${params[1]}*.`, { reply_to_message_id: reply, parse_mode: "Markdown" });
+                } else if (result === 'error-2') {
+                    bot.sendMessage( event.chat.id, `O valor não pode ser convertido.`, { reply_to_message_id: reply } );
+                } else {
+                    bot.sendMessage(
+                        event.chat.id,
+                        `A cotação de ${params[0]} para ${params[1]} é: *${result.toLocaleString("pt-BR", {style: "currency", currency: params[1]})}*.`,
+                        {  reply_to_message_id: reply, reply_markup: { remove_keyboard: true }, parse_mode: "Markdown" }
+                    );
+                }
+            } else {
+                bot.sendMessage(event.chat.id, `O comando deve estar no formato: \`/cota <entrada-saida> <valor>\`.\n\nExemplo: \n\`/cota USD-BRL 100\`.\n\`/cota EUR-JPY 100\`.\n\`/cota BRL-USD 100\`.\n\nVeja mais usando: /cota\\_factors.`, {
+                    reply_to_message_id: reply,
+                    parse_mode: "Markdown"
+                });
+            }
+        },
+        cota_factors() {
+            bot.sendMessage(event.chat.id, 
+                `Fatores de cotação: \n\n\`AED\`: Dirham dos Emirados;\n\`AFN\`: Afghani do Afeganistão;\n\`ALL\`: Lek Albanês;\n\`AMD\`: Dram Armênio;\n\`ANG\`: Guilder das Antilhas;\n\`AOA\`: Kwanza Angolano;\n\`ARS\`: Peso Argentino;\n\`AUD\`: Dólar Australiano;\n\`AZN\`: Manat Azeri;\n\`BAM\`: Marco Conversível;\n\`BBD\`: Dólar de Barbados;\n\`BDT\`: Taka de Bangladesh;\n\`BGN\`: Lev Búlgaro;\n\`BHD\`: Dinar do Bahrein;\n\`BIF\`: Franco Burundinense;\n\`BND\`: Dólar de Brunei;\n\`BOB\`: Boliviano;\n\`BRL\`: Real Brasileiro;\n\`BRLT\`: Real Brasileiro Turismo;\n\`BSD\`: Dólar das Bahamas;\n\`BTC\`: Bitcoin;\n\`BWP\`: Pula de Botswana;\n\`BYN\`: Rublo Bielorrusso;\n\`BZD\`: Dólar de Belize;\n\`CAD\`: Dólar Canadense;\n\`CHF\`: Franco Suíço;\n\`CHFRTS\`: Franco Suíço;\n\`CLP\`: Peso Chileno;\n\`CNH\`: Yuan chinês offshore;\n\`CNY\`: Yuan Chinês;\n\`COP\`: Peso Colombiano;\n\`CRC\`: Colón Costarriquenho;\n\`CUP\`: Peso Cubano;\n\`CVE\`: Escudo cabo-verdiano;\n\`CZK\`: Coroa Checa;\n\`DJF\`: Franco do Djubouti;\n\`DKK\`: Coroa Dinamarquesa;\n\`DOGE\`: Dogecoin;\n\`DOP\`: Peso Dominicano;\n\`DZD\`: Dinar Argelino;\n\`EGP\`: Libra Egípcia;\n\`ETB\`: Birr Etíope;\n\`ETH\`: Ethereum;\n\`EUR\`: Euro;\n\`FJD\`: Dólar de Fiji;\n\`GBP\`: Libra Esterlina;\n\`GEL\`: Lari Georgiano;\n\`GHS\`: Cedi Ganês;\n\`GMD\`: Dalasi da Gâmbia;\n\`GNF\`: Franco de Guiné;\n\`GTQ\`: Quetzal Guatemalteco;\n\`HKD\`: Dólar de Hong Kong;\n\`HNL\`: Lempira Hondurenha;\n\`HRK\`: Kuna Croata;\n\`HTG\`: Gourde Haitiano;\n\`HUF\`: Florim Húngaro;\n\`IDR\`: Rupia Indonésia;\n\`ILS\`: Novo Shekel Israelense;\n\`INR\`: Rúpia Indiana;\n\`IQD\`: Dinar Iraquiano;\n\`IRR\`: Rial Iraniano;\n\`ISK\`: Coroa Islandesa;\n\`JMD\`: Dólar Jamaicano;\n\`JOD\`: Dinar Jordaniano;\n\`JPY\`: Iene Japonês;\n\`JPYRTS\`: Iene Japonês;\n\`KES\`: Shilling Queniano;\n\`KGS\`: Som Quirguistanês;\n\`KHR\`: Riel Cambojano;\n\`KMF\`: Franco Comorense;\n\`KRW\`: Won Sul-Coreano;\n\`KWD\`: Dinar Kuwaitiano;\n\`KYD\`: Dólar das Ilhas Cayman;\n\`KZT\`: Tengue Cazaquistanês;\n\`LAK\`: Kip Laosiano;\n\`LBP\`: Libra Libanesa;\n\`LKR\`: Rúpia de Sri Lanka;\n\`LSL\`: Loti do Lesoto;\n\`LTC\`: Litecoin;\n\`LYD\`: Dinar Líbio;\n\`MAD\`: Dirham Marroquino;\n\`MDL\`: Leu Moldavo;\n\`MGA\`: Ariary Madagascarense;\n\`MKD\`: Denar Macedônio;\n\`MMK\`: Kyat de Mianmar;\n\`MNT\`: Mongolian Tugrik;\n\`MOP\`: Pataca de Macau;\n\`MRO\`: Ouguiya Mauritana;\n\`MUR\`: Rúpia Mauriciana;\n\`MVR\`: Rufiyaa Maldiva;\n\`MWK\`: Kwacha Malauiana;\n\`MXN\`: Peso Mexicano;\n\`MYR\`: Ringgit Malaio;\n\`MZN\`: Metical de Moçambique;\n\`NAD\`: Dólar Namíbio;\n\`NGN\`: Naira Nigeriana;\n\`NGNI\`: Naira Nigeriana;\n\`NGNPARALLEL\`: Naira Nigeriana;\n\`NIO\`: Córdoba Nicaraguense;\n\`NOK\`: Coroa Norueguesa;\n\`NPR\`: Rúpia Nepalesa;\n\`NZD\`: Dólar Neozelandês;\n\`OMR\`: Rial Omanense;\n\`PAB\`: Balboa Panamenho;\n\`PEN\`: Sol do Peru;\n\`PGK\`: Kina Papua-Nova Guiné;\n\`PHP\`: Peso Filipino;\n\`PKR\`: Rúpia Paquistanesa;\n\`PLN\`: Zlóti Polonês;\n\`PYG\`: Guarani Paraguaio;\n\`QAR\`: Rial Catarense;\n\`RON\`: Leu Romeno;\n\`RSD\`: Dinar Sérvio;\n\`RUB\`: Rublo Russo;\n\`RUBTOD\`: Rublo Russo;\n\`RUBTOM\`: Rublo Russo;\n\`RWF\`: Franco Ruandês;\n\`SAR\`: Riyal Saudita;\n\`SCR\`: Rúpias de Seicheles;\n\`SDG\`: Libra Sudanesa;\n\`SDR\`: DSE;\n\`SEK\`: Coroa Sueca;\n\`SGD\`: Dólar de Cingapura;\n\`SOS\`: Shilling Somaliano;\n\`STD\`: Dobra São Tomé/Príncipe;\n\`SVC\`: Colon de El Salvador;\n\`SYP\`: Libra Síria;\n\`SZL\`: Lilangeni Suazilandês;\n\`THB\`: Baht Tailandês;\n\`TJS\`: Somoni do Tajiquistão;\n\`TMT\`: TMT;\n\`TND\`: Dinar Tunisiano;\n\`TRY\`: Nova Lira Turca;\n\`TTD\`: Dólar de Trinidad;\n\`TWD\`: Dólar Taiuanês;\n\`TZS\`: Shilling Tanzaniano;\n\`UAH\`: Hryvinia Ucraniana;\n\`UGX\`: Shilling Ugandês;\n\`USD\`: Dólar Americano;\n\`USDT\`: Dólar Americano;\n\`UYU\`: Peso Uruguaio;\n\`UZS\`: Som Uzbequistanês;\n\`VEF\`: Bolívar Venezuelano;\n\`VND\`: Dong Vietnamita;\n\`VUV\`: Vatu de Vanuatu;\n\`XAF\`: Franco CFA Central;\n\`XAGG\`: Prata;\n\`XBR\`: Brent Spot;\n\`XCD\`: Dólar do Caribe Oriental;\n\`XOF\`: Franco CFA Ocidental;\n\`XPF\`: Franco CFP;\n\`XRP\`: XRP;\n\`YER\`: Riyal Iemenita;\n\`ZAR\`: Rand Sul-Africano;\n\`ZMK\`: Kwacha Zambiana;\n\`ZWL\`: Dólar Zimbabuense;\n\`XAU\`: Ouro.`, 
+                { reply_to_message_id: reply, parse_mode: "Markdown" });
         }
     }
 }
@@ -280,12 +266,6 @@ function waits(event: TelegramBot.Message, funcApply: Apply, reply?: number): { 
 
 function calls(event: TelegramBot.CallbackQuery, data: string, reply?: number): { [key: string]: any } {
     return {
-        hell() {
-            bot.editMessageText(`Você escolheu ${data[0] === "yes" ? "sim": "não"}.`, {
-                chat_id: event.message?.chat.id,
-                message_id: event.message?.message_id
-            })
-        },
         async shorturl() {
             var dat = settings.callData[`shorturl-${data.slice(9).split('-')[1]}`];
             try {
@@ -310,13 +290,11 @@ function calls(event: TelegramBot.CallbackQuery, data: string, reply?: number): 
 
 bot.on("message", event => {
     let msg = event.text as string;
-    // console.dir(RunTimeParams, {depth: 1000})
-    // console.dir(settings, {depth: 100})
     if (msg.startsWith("/") && (event.chat.type === "group" || event.chat.type === "supergroup")) {
         if (primaryConfig.chats_allowed.includes(event.chat.id) || primaryConfig.administrators.includes(event.from?.id as number)) {
             let command = msg.slice(1).split(" ");
             if(command[0].includes("@")) {
-                if (command[0].endsWith("@zephyr_0bot")) {
+                if (command[0].endsWith(`@${process.env.BOT_NAME}`)) {
                     command[0] = command[0].split("@")[0]
                 } else return
             } 
@@ -326,12 +304,12 @@ bot.on("message", event => {
             if (Object.keys(_commands).includes(command[0])) {
                 _commands[command[0]]();
             }
-            console.log(fuckBody([
-                ` > command:  ${command[0]}. `,
-                ` > message:  "${msg}". `,
-                ` > user:     @${event.from?.username}. `,
-                ` > used in:  ${event.chat.title}. `,
-                ` > hour:     ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}. `,
+            console.log(commandNotify([
+                ` > Command:  ${command[0]}. `,
+                ` > Message:  "${msg}". `,
+                ` > User:     @${event.from?.username}. `,
+                ` > Used in:  ${event.chat.title}. `,
+                ` > Hour:     ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}. `,
             ], "Command Used"))
         } else {
             bot.sendMessage(event.chat.id, "Esse grupo está bloqueado.")
@@ -340,12 +318,12 @@ bot.on("message", event => {
     } else if ((RunTimeParams.public[event.chat.id] !== undefined && RunTimeParams.public[event.chat.id][event.from?.username as string].waitPrm) && (event.chat.type === "group" || event.chat.type === "supergroup")) {
         let cmd = RunTimeParams.public[event.chat.id][event.from?.username as string].waitCmd as string
         waits(event, applyPublic, event.message_id)[cmd]();
-        console.log(fuckBody([
-            ` > answer to:   ${cmd}. `,
-            ` > content:     "${event.text}". `,
-            ` > user:        @${event.from?.username}. `,
-            ` > answered in: ${event.chat.title}. `,
-            ` > hour:        ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}. `,
+        console.log(commandNotify([
+            ` > Answer to:   ${cmd}. `,
+            ` > Content:     "${event.text}". `,
+            ` > User:        @${event.from?.username}. `,
+            ` > Answered in: ${event.chat.title}. `,
+            ` > Hour:        ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}. `,
         ], "Command Answered"))
 
     } else if (msg.startsWith("/") && event.chat.type === "private") {
@@ -356,27 +334,25 @@ bot.on("message", event => {
         if (Object.keys(_commands).includes(command[0])) {
             _commands[command[0]]();
         }
-        console.log(fuckBody([
-            ` > command:  ${command[0]}. `,
-            ` > message:  "${msg}". `,
-            ` > user:     @${event.from?.username}. `,
-            ` > used in:  Private. `,
-            ` > hour:     ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}. `,
+        console.log(commandNotify([
+            ` > Command:  ${command[0]}. `,
+            ` > Message:  "${msg}". `,
+            ` > User:     @${event.from?.username}. `,
+            ` > Used in:  Private. `,
+            ` > Hour:     ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}. `,
         ], "Command Used"))
     } else if (RunTimeParams.private.waitPrm && event.chat.type === "private") {
         bot.sendChatAction(event.chat.id, "typing")
         let cmd = RunTimeParams.private.waitCmd as string
         waits(event, applyPrivate)[cmd]();
-        console.log(fuckBody([
-            ` > answer to:   ${cmd}. `,
-            ` > content:     "${event.text}". `,
-            ` > user:        @${event.from?.username}. `,
-            ` > answered in: Private. `,
-            ` > hour:        ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}. `,
+        console.log(commandNotify([
+            ` > Answer to:   ${cmd}. `,
+            ` > Content:     "${event.text}". `,
+            ` > User:        @${event.from?.username}. `,
+            ` > Answered in: Private. `,
+            ` > Hour:        ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}. `,
         ], "Command Answered"))
     }
-    // console.dir(RunTimeParams, {depth: 1000})
-    // console.dir(settings, {depth: 100})
 })
 
 bot.on("callback_query", event => {
@@ -397,8 +373,8 @@ bot.on('polling_error', event => {
     console.log(event.message);
 })
 
-console.log(fuckBody([" Zephyr está on-line. "]));
-console.log(fuckBody(JSON.stringify(primaryConfig, undefined, 2).split("\n").map(d => d + " ").slice(1, -1), "Current Settings"));
+console.log(commandNotify([" O Bot está on-line. "]));
+console.log(commandNotify(JSON.stringify(primaryConfig, undefined, 2).split("\n").map(d => d + " ").slice(1, -1), "Current Settings"));
 
 process.env["NTBA_FIX_319"] = "1";
 process.env["NTBA_FIX_350"] = "0";
