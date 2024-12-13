@@ -52,15 +52,17 @@ bot.setMyCommands([
     {command: "qrcode", description: "Gera um QrCode."},
     {command: "yt", description: "Baixa musicas do YouTube."},
     {command: "shorturl", description: "Encurta uma URL."},
-    {command: "allow", description: "Permite um grupo (ADM)."},
+    {command: "cota", description: "Converte de moedas."},
 ]);
 
-function commandNotify(content: string[], title?: string, width: number = 1) {
+function commandNotify(content: string[], title?: string, width: number = 1, max_width = process.stdout.columns) {
     let emi: string[] = []
     let bigger = Math.max(...content.map(d => d.length))
     if (bigger > width) width = bigger
+    if (width > max_width) width = max_width - 2
     emi.push(...content.map(d => {
-        return `┃${d + " ".repeat(width - d.length)}┃`
+        var x = d.length > width ? d.slice(0, width - 4) + "... " : d
+        return `┃${x + " ".repeat(width - x.length)}┃`
     }))
     return [
         `┏${title === undefined ? '━'.repeat(width) : `━ ${title} ` + '━'.repeat(width - title.length - 3)}┓`,
@@ -214,17 +216,22 @@ function commands(event: TelegramBot.Message, param: string[], funcApply: Apply,
                 }) 
             }
             if (param.length === 2) {
+                const etr = parseFloat(param[1].replace(',', '.'));
                 const params = param[0].split('-').map(d => d.toUpperCase());
-                const result = await convert(params[0], params[1], parseFloat(param[1]));
+                const result = await convert(params[0], params[1], etr);
                 if (result === 'error-1') {
-                    bot.sendMessage( event.chat.id, `Não consigo converter a configuração de *${params[0]}-${params[1]}*.`, { reply_to_message_id: reply, parse_mode: "Markdown" });
+                    bot.sendMessage( event.chat.id, `Não consigo converter a configuração *${params[0]}-${params[1]}*.`, { reply_to_message_id: reply, parse_mode: "Markdown" });
                 } else if (result === 'error-2') {
                     bot.sendMessage( event.chat.id, `O valor não pode ser convertido.`, { reply_to_message_id: reply } );
                 } else {
+                    var from: number | string = etr;
+                    try { from = from.toLocaleString("pt-BR", {style: "currency", currency: params[0]}) } catch {}
+                    var to = result;
+                    try { to = result.toLocaleString("pt-BR", {style: "currency", currency: params[1]}) } catch {}
                     bot.sendMessage(
                         event.chat.id,
-                        `A cotação de ${params[0]} para ${params[1]} é: *${result.toLocaleString("pt-BR", {style: "currency", currency: params[1]})}*.`,
-                        {  reply_to_message_id: reply, reply_markup: { remove_keyboard: true }, parse_mode: "Markdown" }
+                        `Atualmente, <strong><u>${from}</u></strong> em ${params[0]} vale o mesmo que <strong><u>${to}</u></strong> em ${params[1]}.\n\nCotação de ${format(new Date(), 'dd/MM/yyyy HH:mm:ss')}`,
+                        {  reply_to_message_id: reply, reply_markup: { remove_keyboard: true }, parse_mode: "HTML" }
                     );
                 }
             } else {
