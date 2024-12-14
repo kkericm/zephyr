@@ -22,8 +22,9 @@
         "axios": "^1.7.9",
         "date-fns": "^4.1.0",
         "dotenv": "^16.4.5",
-        "node-telegram-bot-api": "^0.64.0",
+        "node-telegram-bot-api": "^0.66.0",
         "qrcode": "^1.5.3",
+        "sqlite3": "^5.1.7",
         "yt-search": "^2.10.4",
         "zephyr": "file:"
     },

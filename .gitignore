@@ -130,3 +130,5 @@ dist
 .pnp.*
 
 build.zip
+*-base.js
+data.db
