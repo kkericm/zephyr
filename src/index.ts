@@ -99,7 +99,7 @@ function commands(event: TelegramBot.Message, param: string[], reply: object): {
             bot.sendMessage(event.chat.id, `Olá, veja os comandos no Menu, ou digite /menu para mais detalhes.`)
         },
         menu() {
-            const arr = reply ? "@zephyr_0bot" : ''
+            const arr = event.chat?.type === 'private' ? '' : "@zephyr_0bot"
             const content = [
                 `<strong>Menu ${process.env.BOT_NAME}!</strong>`,
                 `\nEstes são os meus comandos <strong>utilizáveis</strong>:`,
@@ -414,9 +414,9 @@ bot.on("message", event => {
     const reply = is_private ? {} : { reply_to_message_id: event.message_id };
     const parameters = msg.split(" ").slice(1);
     
-    var command = get_command(msg, is_private);
+    var command = get_command(msg, !is_private);
     
-    if (command && (!is_private && (primary_config.chats_allowed.includes(event.chat.id) || primary_config.administrators.includes(event.from?.id as number)))) {
+    if (command && ((!is_private && (primary_config.chats_allowed.includes(event.chat.id) || primary_config.administrators.includes(event.from?.id as number))) || is_private)) {
         commands(event, parameters, reply)[command]();
         
         console.log(commandNotify([
