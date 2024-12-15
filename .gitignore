@@ -132,3 +132,4 @@ dist
 build.zip
 *-base.js
 data.db
+nodemon.json
