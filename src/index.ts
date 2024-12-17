@@ -7,6 +7,7 @@ import ytdl from "@distube/ytdl-core";
 import ytSeach from "yt-search";
 import { format } from "date-fns";
 import axios from 'axios';
+import { Jimp } from 'jimp';
 
 const bot = new TelegramBot(process.env.TOKEN as string, { polling: true, filepath: false });
 
@@ -22,26 +23,41 @@ var runtime_data = {
 const myCommands = [
     { command: "menu", description: "Mostra todos os comandos." },
     { command: "qrcode", description: "Gera um QrCode." },
-    { command: "yt_music", description: "Baixa musicas do YouTube." },
     { command: "shorturl", description: "Encurta uma URL." },
     { command: "cota", description: "Converte de moedas." },
+    { command: "ping", description: "Calcula a velocidade da conexão." },
 ]
 bot.setMyCommands(myCommands);
 
-function commandNotify(content: string[], title?: string, width: number = 1, max_width = process.stdout.columns) {
-    let emi: string[] = []
+function commandNotify(content: string[], title = '', min_width = 1, max_width = process.stdout.columns, break_line = true) {
+    var width = min_width - 2
+    let emi: string[] = [];
     let bigger = Math.max(...content.map(d => d.length))
     if (bigger > width) width = bigger
-    if (width > max_width) width = max_width - 4
+    if (width > max_width) width = max_width - 3
     width++
     emi.push(...content.map(d => {
-        var x = d.length > width ? d.slice(0, width - 4) + "... " : d
-        return `│${x + " ".repeat(width - x.length)}│`
+        if (d.length > width) {
+            var x = ''
+            if (break_line) {
+                const rows = Math.ceil(d.length / width);
+                var o = [];
+                for (let i = 0; i < rows; i++) {
+                    o.push(`│ ${d.slice(i * width, (i + 1) * width) + " ".repeat(width - d.slice(i * width, (i + 1) * width).length)} │`)
+                }
+                return o.join("\n")
+            } else {
+                var x = d.slice(0, width - 4) + "..."
+                return `│ ${x + " ".repeat(width - x.length - 1)} │`
+            }
+        } else {
+            return `│ ${d + " ".repeat(width - d.length -1)} │`
+        }
     }));
     return [
-        `┌${!title ? '─'.repeat(width) : `─ ${(title.length > width ? title.slice(0, width - 7) + "..." : title)} ─` + '─'.repeat((width - title.length - 4) > 0 ? width - title.length - 4 : 0)}┐`,
+        `┌${!title ? '─'.repeat(width + 1) : `─ ${(title.length > width ? title.slice(0, width - 6) + "..." : title)} ─` + '─'.repeat((width - title.length - 3) > 0 ? width - title.length - 3 : 0)}┐`,
         ...emi,
-        `└${'─'.repeat(width)}┘`
+        `└${'─'.repeat(width + 1)}┘`
     ].join("\n")
 }
 function get_command(message: string, is_public: boolean) {
@@ -54,7 +70,8 @@ const c_wid = () => process.stdout.columns - 4;
 async function listen_parameter(chat_id: number, user_id: number, command_name?: string): Promise<TelegramBot.Message> {
     return new Promise((resolve) => {
         function handler(msg: TelegramBot.Message) {
-            if (msg.from?.id === user_id && msg.chat.id === chat_id) {
+            const is_private = msg.chat.type === 'private';
+            if (msg.from?.id === user_id && msg.chat.id === chat_id && (is_private || msg.reply_to_message?.from?.username === process.env.BOT_USERNAME)) {
                 if (!msg.text?.startsWith('/')) { 
                     resolve(msg);
                     console.log(commandNotify([
@@ -107,6 +124,7 @@ function commands(event: TelegramBot.Message, param: string[], reply: object): {
                 `▸  /qrcode${arr} - Gera um QrCode.`,
                 `▸  /shorturl${arr} - Encurta uma URL.`,
                 `▸  /cota${arr} - Converte de moedas.`,
+                `▸  /ping${arr} - Calcula a velocidade da conexão.`,
                 `\nEstes são os meus comandos <strong>inativos</strong>:`,
                 `▸  /yt_music${arr} - Baixa musicas do YouTube.`,
                 `\nEstes são os meus comandos <strong>exclusivos para administradores</strong>:`,
@@ -357,6 +375,21 @@ function commands(event: TelegramBot.Message, param: string[], reply: object): {
                 `O comando deve estar no formato: \`/cota <entrada-saida> <valor>\`.\n\nExemplo: \n\`/cota USD-BRL 100\`.\n\`/cota EUR-JPY 100\`.\n\`/cota BRL-USD 100\`.\n\nFatores de cotação: \n\n\`AED\`: Dirham dos Emirados;\n\`AFN\`: Afghani do Afeganistão;\n\`ALL\`: Lek Albanês;\n\`AMD\`: Dram Armênio;\n\`ANG\`: Guilder das Antilhas;\n\`AOA\`: Kwanza Angolano;\n\`ARS\`: Peso Argentino;\n\`AUD\`: Dólar Australiano;\n\`AZN\`: Manat Azeri;\n\`BAM\`: Marco Conversível;\n\`BBD\`: Dólar de Barbados;\n\`BDT\`: Taka de Bangladesh;\n\`BGN\`: Lev Búlgaro;\n\`BHD\`: Dinar do Bahrein;\n\`BIF\`: Franco Burundinense;\n\`BND\`: Dólar de Brunei;\n\`BOB\`: Boliviano;\n\`BRL\`: Real Brasileiro;\n\`BRLT\`: Real Brasileiro Turismo;\n\`BSD\`: Dólar das Bahamas;\n\`BTC\`: Bitcoin;\n\`BWP\`: Pula de Botswana;\n\`BYN\`: Rublo Bielorrusso;\n\`BZD\`: Dólar de Belize;\n\`CAD\`: Dólar Canadense;\n\`CHF\`: Franco Suíço;\n\`CHFRTS\`: Franco Suíço;\n\`CLP\`: Peso Chileno;\n\`CNH\`: Yuan chinês offshore;\n\`CNY\`: Yuan Chinês;\n\`COP\`: Peso Colombiano;\n\`CRC\`: Colón Costarriquenho;\n\`CUP\`: Peso Cubano;\n\`CVE\`: Escudo cabo-verdiano;\n\`CZK\`: Coroa Checa;\n\`DJF\`: Franco do Djubouti;\n\`DKK\`: Coroa Dinamarquesa;\n\`DOGE\`: Dogecoin;\n\`DOP\`: Peso Dominicano;\n\`DZD\`: Dinar Argelino;\n\`EGP\`: Libra Egípcia;\n\`ETB\`: Birr Etíope;\n\`ETH\`: Ethereum;\n\`EUR\`: Euro;\n\`FJD\`: Dólar de Fiji;\n\`GBP\`: Libra Esterlina;\n\`GEL\`: Lari Georgiano;\n\`GHS\`: Cedi Ganês;\n\`GMD\`: Dalasi da Gâmbia;\n\`GNF\`: Franco de Guiné;\n\`GTQ\`: Quetzal Guatemalteco;\n\`HKD\`: Dólar de Hong Kong;\n\`HNL\`: Lempira Hondurenha;\n\`HRK\`: Kuna Croata;\n\`HTG\`: Gourde Haitiano;\n\`HUF\`: Florim Húngaro;\n\`IDR\`: Rupia Indonésia;\n\`ILS\`: Novo Shekel Israelense;\n\`INR\`: Rúpia Indiana;\n\`IQD\`: Dinar Iraquiano;\n\`IRR\`: Rial Iraniano;\n\`ISK\`: Coroa Islandesa;\n\`JMD\`: Dólar Jamaicano;\n\`JOD\`: Dinar Jordaniano;\n\`JPY\`: Iene Japonês;\n\`JPYRTS\`: Iene Japonês;\n\`KES\`: Shilling Queniano;\n\`KGS\`: Som Quirguistanês;\n\`KHR\`: Riel Cambojano;\n\`KMF\`: Franco Comorense;\n\`KRW\`: Won Sul-Coreano;\n\`KWD\`: Dinar Kuwaitiano;\n\`KYD\`: Dólar das Ilhas Cayman;\n\`KZT\`: Tengue Cazaquistanês;\n\`LAK\`: Kip Laosiano;\n\`LBP\`: Libra Libanesa;\n\`LKR\`: Rúpia de Sri Lanka;\n\`LSL\`: Loti do Lesoto;\n\`LTC\`: Litecoin;\n\`LYD\`: Dinar Líbio;\n\`MAD\`: Dirham Marroquino;\n\`MDL\`: Leu Moldavo;\n\`MGA\`: Ariary Madagascarense;\n\`MKD\`: Denar Macedônio;\n\`MMK\`: Kyat de Mianmar;\n\`MNT\`: Mongolian Tugrik;\n\`MOP\`: Pataca de Macau;\n\`MRO\`: Ouguiya Mauritana;\n\`MUR\`: Rúpia Mauriciana;\n\`MVR\`: Rufiyaa Maldiva;\n\`MWK\`: Kwacha Malauiana;\n\`MXN\`: Peso Mexicano;\n\`MYR\`: Ringgit Malaio;\n\`MZN\`: Metical de Moçambique;\n\`NAD\`: Dólar Namíbio;\n\`NGN\`: Naira Nigeriana;\n\`NGNI\`: Naira Nigeriana;\n\`NGNPARALLEL\`: Naira Nigeriana;\n\`NIO\`: Córdoba Nicaraguense;\n\`NOK\`: Coroa Norueguesa;\n\`NPR\`: Rúpia Nepalesa;\n\`NZD\`: Dólar Neozelandês;\n\`OMR\`: Rial Omanense;\n\`PAB\`: Balboa Panamenho;\n\`PEN\`: Sol do Peru;\n\`PGK\`: Kina Papua-Nova Guiné;\n\`PHP\`: Peso Filipino;\n\`PKR\`: Rúpia Paquistanesa;\n\`PLN\`: Zlóti Polonês;\n\`PYG\`: Guarani Paraguaio;\n\`QAR\`: Rial Catarense;\n\`RON\`: Leu Romeno;\n\`RSD\`: Dinar Sérvio;\n\`RUB\`: Rublo Russo;\n\`RUBTOD\`: Rublo Russo;\n\`RUBTOM\`: Rublo Russo;\n\`RWF\`: Franco Ruandês;\n\`SAR\`: Riyal Saudita;\n\`SCR\`: Rúpias de Seicheles;\n\`SDG\`: Libra Sudanesa;\n\`SDR\`: DSE;\n\`SEK\`: Coroa Sueca;\n\`SGD\`: Dólar de Cingapura;\n\`SOS\`: Shilling Somaliano;\n\`STD\`: Dobra São Tomé/Príncipe;\n\`SVC\`: Colon de El Salvador;\n\`SYP\`: Libra Síria;\n\`SZL\`: Lilangeni Suazilandês;\n\`THB\`: Baht Tailandês;\n\`TJS\`: Somoni do Tajiquistão;\n\`TMT\`: TMT;\n\`TND\`: Dinar Tunisiano;\n\`TRY\`: Nova Lira Turca;\n\`TTD\`: Dólar de Trinidad;\n\`TWD\`: Dólar Taiuanês;\n\`TZS\`: Shilling Tanzaniano;\n\`UAH\`: Hryvinia Ucraniana;\n\`UGX\`: Shilling Ugandês;\n\`USD\`: Dólar Americano;\n\`USDT\`: Dólar Americano;\n\`UYU\`: Peso Uruguaio;\n\`UZS\`: Som Uzbequistanês;\n\`VEF\`: Bolívar Venezuelano;\n\`VND\`: Dong Vietnamita;\n\`VUV\`: Vatu de Vanuatu;\n\`XAF\`: Franco CFA Central;\n\`XAGG\`: Prata;\n\`XBR\`: Brent Spot;\n\`XCD\`: Dólar do Caribe Oriental;\n\`XOF\`: Franco CFA Ocidental;\n\`XPF\`: Franco CFP;\n\`XRP\`: XRP;\n\`YER\`: Riyal Iemenita;\n\`ZAR\`: Rand Sul-Africano;\n\`ZMK\`: Kwacha Zambiana;\n\`ZWL\`: Dólar Zimbabuense;\n\`XAU\`: Ouro.`,
                 { ...reply, parse_mode: "Markdown" });
         },
+        async ping() {        
+            const sentMessage = await bot.sendMessage(event.chat.id, 'Calculando...', reply);
+            
+            const start = Date.now();
+
+            await bot.getMe();
+
+            const end = Date.now();
+            const ping = end - start;
+            
+            bot.editMessageText(`🏓 Pong! O ping da API é de ${ping > 999 ? "+999" : ping}ms.`, {
+                    chat_id: event.chat.id,
+                    message_id: sentMessage.message_id,
+            });
+        },
         async wait_test() {
             var params = param;
             if (param.length === 0) {
@@ -406,6 +439,8 @@ bot.on("message", event => {
         if (!(event.new_chat_members.find(d => d.username === process.env.BOT_USERNAME))) return;
         bot.sendMessage(primary_config.administrators[0], `Me adicionaram no grupo: ${event.chat.title}.\n\nAdicionado por @${event.from?.username}.`);
         return
+    } else if (event.left_chat_member) {
+        event.left_chat_member.username === process.env.BOT_USERNAME && bot.sendMessage(primary_config.administrators[0], `Não estou mais no grupo: ${event.chat.title}.\n\nRemovido por @${event.from?.username}.`);
     }
 
     let msg = event.text as string;
@@ -430,12 +465,11 @@ bot.on("message", event => {
 });
 
 bot.on('polling_error', event => {
-    console.log(event.message);
     console.log(commandNotify([` ${event.message} `], undefined, c_wid()));
-})
+});
 
-console.log(commandNotify([" O Bot está on-line. "], undefined, c_wid()));
-console.log(commandNotify(JSON.stringify(primary_config, undefined, 2).split("\n").map(d => d + " ").slice(1, -1), "Current Settings", c_wid()));
+console.log(commandNotify([`${process.env.BOT_NAME} está on-line.`, `Link: https://t.me/${process.env.BOT_USERNAME}`], undefined));
+console.log(commandNotify(JSON.stringify(primary_config, undefined, 2).split("\n"), "Current Settings", c_wid()));
 
 process.env["NTBA_FIX_319"] = "1";
 process.env["NTBA_FIX_350"] = "0";
