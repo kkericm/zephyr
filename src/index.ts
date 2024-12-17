@@ -7,7 +7,6 @@ import ytdl from "@distube/ytdl-core";
 import ytSeach from "yt-search";
 import { format } from "date-fns";
 import axios from 'axios';
-import { Jimp } from 'jimp';
 
 const bot = new TelegramBot(process.env.TOKEN as string, { polling: true, filepath: false });
 
